@@ -1,0 +1,72 @@
+name: Build OpenSSL for iOS
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-openssl-ios:
+    name: Build OpenSSL for iOS
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        brew install automake libtool
+
+    - name: Configure and Build OpenSSL for iOS
+      working-directory: ${{runner.workspace}}
+      env:
+        SDKVERSION: $(xcrun --sdk iphoneos --show-sdk-version)
+        MIN_IOS_VERSION: 12.0
+        ARCHS: "arm64 arm64e x86_64"
+        BUILD_DIR: build-ios
+      run: |
+        set -e
+
+        # Set paths for the build
+        OPENSSL_DIR=${PWD}
+        OUTPUT_DIR=${PWD}/${BUILD_DIR}
+        mkdir -p "${OUTPUT_DIR}"
+
+        for ARCH in $ARCHS; do
+          if [[ "$ARCH" == "x86_64" ]]; then
+            PLATFORM="iPhoneSimulator"
+          else
+            PLATFORM="iPhoneOS"
+          fi
+
+          # Set SDK paths
+          SDK=$(xcrun --sdk $PLATFORM --show-sdk-path)
+          export CROSS_TOP="${SDK%/SDKs/*}/SDKs"
+          export CROSS_SDK="${PLATFORM}${SDKVERSION}.sdk"
+          export BUILD_TOOLS="${SDK%/SDKs/*}/usr/bin"
+
+          # Configure OpenSSL for the target architecture
+          cd "$OPENSSL_DIR"
+          ./Configure iphoneos-cross no-shared no-dso no-hw no-engine \
+            --prefix="${OUTPUT_DIR}/${ARCH}" \
+            --openssldir="${OUTPUT_DIR}/${ARCH}/ssl"
+
+          # Build OpenSSL
+          make clean
+          make -j$(sysctl -n hw.logicalcpu)
+          make install_sw
+        done
+
+    - name: Archive build output
+      run: |
+        tar -czf openssl-ios-binaries.tar.gz -C ${BUILD_DIR} .
+        mkdir -p artifacts
+        mv openssl-ios-binaries.tar.gz artifacts/
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: openssl-ios-binaries
+        path: artifacts/
