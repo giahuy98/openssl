@@ -49,7 +49,7 @@ jobs:
         xcrun --sdk iphonesimulator --show-sdk-path || echo "SDK iphonesimulator not found"
 
     - name: Configure and Build OpenSSL for iOS
-      working-directory: ${{ github.workspace }}/openssl
+      working-directory: ${{ github.workspace }}
       env:
         SDK_PATH: "/Applications/Xcode_15.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.5.sdk"
         MIN_IOS_VERSION: 12.0
