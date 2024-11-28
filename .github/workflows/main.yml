@@ -42,16 +42,11 @@ jobs:
     - name: Accept Xcode License
       run: sudo xcodebuild -license accept
 
-    - name: Check Available SDKs
-      run: |
-        xcode-select -p
-        xcrun --sdk iphoneos --show-sdk-path || echo "SDK iphoneos not found"
-        xcrun --sdk iphonesimulator --show-sdk-path || echo "SDK iphonesimulator not found"
-
     - name: Configure and Build OpenSSL for iOS
       working-directory: ${{ github.workspace }}
       env:
-        SDK_PATH: "/Applications/Xcode_15.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.5.sdk"
+        IOS_SDK_PATH: "/Applications/Xcode_15.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.5.sdk"
+        SIMULATOR_SDK_PATH: "/Applications/Xcode_15.4.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator17.5.sdk"
         MIN_IOS_VERSION: 12.0
         ARCHS: "arm64 arm64e x86_64"
         BUILD_DIR: build-cache/build-ios
@@ -66,8 +61,10 @@ jobs:
         for ARCH in $ARCHS; do
           if [[ "$ARCH" == "x86_64" ]]; then
             PLATFORM="iPhoneSimulator"
+            SDK_PATH=$SIMULATOR_SDK_PATH
           else
             PLATFORM="iPhoneOS"
+            SDK_PATH=$IOS_SDK_PATH
           fi
 
           # Simplified SDK paths
