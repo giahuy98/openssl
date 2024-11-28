@@ -12,6 +12,20 @@ jobs:
     runs-on: macos-latest
 
     steps:
+    - name: Debug Xcode Environment
+      run: |
+        echo "Xcode Path:"
+        xcode-select -p
+        echo "Available iOS SDKs:"
+        ls /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs || echo "No iPhoneOS SDK found"
+        echo "SDK Path (xcrun):"
+        xcrun --sdk iphoneos --show-sdk-path || echo "SDK path not found"
+
+    - name: Ensure Xcode is Configured
+      run: |
+        sudo xcode-select --switch /Applications/Xcode.app
+        sudo xcodebuild -license accept
+        
     - name: Checkout repository
       uses: actions/checkout@v3
 
