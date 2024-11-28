@@ -12,31 +12,38 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - name: Debug Xcode Environment
-      run: |
-        echo "Xcode Path:"
-        xcode-select -p
-        echo "Available iOS SDKs:"
-        ls /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs || echo "No iPhoneOS SDK found"
-        echo "SDK Path (xcrun):"
-        xcrun --sdk iphoneos --show-sdk-path || echo "SDK path not found"
-
-    - name: Ensure Xcode is Configured
-      run: |
-        sudo xcode-select --switch /Applications/Xcode.app
-        sudo xcodebuild -license accept
-        
     - name: Checkout repository
       uses: actions/checkout@v3
 
     - name: Install dependencies
       run: |
         brew install automake libtool
+      working-directory: ${{ runner.workspace }}
+
+    - name: Set the correct Xcode version
+      run: |
+        sudo xcode-select --switch /Applications/Xcode_15.4.app
+      working-directory: ${{ runner.workspace }}
+
+    - name: Install Xcode Command Line Tools
+      run: |
+        xcode-select --install || echo "Xcode Command Line Tools are already installed"
+      working-directory: ${{ runner.workspace }}
+
+    - name: Accept Xcode License
+      run: sudo xcodebuild -license accept
+      working-directory: ${{ runner.workspace }}
+
+    - name: Check Available SDKs
+      run: |
+        xcode-select -p
+        xcrun --sdk iphoneos --show-sdk-path || echo "SDK iphoneos not found"
+        xcrun --sdk iphonesimulator --show-sdk-path || echo "SDK iphonesimulator not found"
+      working-directory: ${{ runner.workspace }}
 
     - name: Configure and Build OpenSSL for iOS
-      working-directory: ${{runner.workspace}}
       env:
-        SDKVERSION: $(xcrun --sdk iphoneos --show-sdk-version)
+        SDK_PATH: "/Applications/Xcode_15.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.5.sdk"
         MIN_IOS_VERSION: 12.0
         ARCHS: "arm64 arm64e x86_64"
         BUILD_DIR: build-ios
@@ -44,7 +51,7 @@ jobs:
         set -e
 
         # Set paths for the build
-        OPENSSL_DIR=${PWD}
+        OPENSSL_DIR=${PWD}/openssl
         OUTPUT_DIR=${PWD}/${BUILD_DIR}
         mkdir -p "${OUTPUT_DIR}"
 
@@ -56,10 +63,9 @@ jobs:
           fi
 
           # Set SDK paths
-          SDK=$(xcrun --sdk $PLATFORM --show-sdk-path)
-          export CROSS_TOP="${SDK%/SDKs/*}/SDKs"
-          export CROSS_SDK="${PLATFORM}${SDKVERSION}.sdk"
-          export BUILD_TOOLS="${SDK%/SDKs/*}/usr/bin"
+          export CROSS_TOP="${SDK_PATH%/SDKs/*}/SDKs"
+          export CROSS_SDK="${PLATFORM}17.5.sdk"
+          export BUILD_TOOLS="${SDK_PATH%/SDKs/*}/usr/bin"
 
           # Configure OpenSSL for the target architecture
           cd "$OPENSSL_DIR"
@@ -72,12 +78,14 @@ jobs:
           make -j$(sysctl -n hw.logicalcpu)
           make install_sw
         done
+      working-directory: ${{ runner.workspace }}
 
     - name: Archive build output
       run: |
         tar -czf openssl-ios-binaries.tar.gz -C ${BUILD_DIR} .
         mkdir -p artifacts
         mv openssl-ios-binaries.tar.gz artifacts/
+      working-directory: ${{ runner.workspace }}
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
